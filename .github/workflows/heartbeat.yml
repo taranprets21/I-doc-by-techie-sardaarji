@@ -3,7 +3,15 @@ name: Site Heartbeat
 on:
   schedule:
     - cron: '*/15 * * * *'
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      test_url:
+        description: 'Optional URL to test instead of production (for demos)'
+        required: false
+      test_mode:
+        description: 'If true, mark created issue as a test (appends (test) to title)'
+        required: false
+        default: 'false'
 
 permissions:
   issues: write
@@ -12,20 +20,66 @@ jobs:
   heartbeat:
     runs-on: ubuntu-latest
     steps:
-      - name: Check site
+      - name: Set variables
+        id: vars
+        run: |
+          URL=${{ github.event.inputs.test_url }}
+          if [ -z "$URL" ]; then
+            URL="https://taranprets21.github.io/I-doc-by-techie-sardaarji/"
+          fi
+          echo "url=$URL" >> $GITHUB_OUTPUT
+          echo "test_mode=${{ github.event.inputs.test_mode }}" >> $GITHUB_OUTPUT
+
+      - name: Check site with retries
         id: check
         run: |
-          status=$((curl -s -o /dev/null -w "%{http_code}" "https://taranprets21.github.io/I-doc-by-techie-sardaarji/") || echo "000")
+          url=${{ steps.vars.outputs.url }}
+          max_attempts=3
+          attempt=1
+          status="000"
+          while [ $attempt -le $max_attempts ]; do
+            status=$( (curl -s -o /dev/null -w "%{http_code}" "$url") || echo "000")
+            echo "Attempt $attempt: status=$status"
+            if [ "$status" = "200" ]; then
+              break
+            fi
+            sleep_time=$((attempt * 5))
+            echo "Sleeping $sleep_time seconds before next attempt"
+            sleep $sleep_time
+            attempt=$((attempt + 1))
+          done
           echo "STATUS_PRINTED=$status"
           echo "status=$status" >> $GITHUB_OUTPUT
 
-      - name: Create issue on failure
+      - name: Handle failure (dedupe + optionally alert)
         if: steps.check.outputs.status != '200'
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const status = `${{ steps.check.outputs.status }}`;
-            const title = `Site down: I-doc heartbeat detected ${status}`;
-            const body = `Automated heartbeat detected non-200 response: ${status}\n\nURL: https://taranprets21.github.io/I-doc-by-techie-sardaarji/`;
+            const isTest = `${{ steps.vars.outputs.test_mode }}` === 'true';
+            let title = `Site down: I-doc heartbeat detected ${status}`;
+            if (isTest) title = `${title} (test)`;
+            const body = `Automated heartbeat detected non-200 response: ${status}\n\nURL: ${{ steps.vars.outputs.url }}`;
+
+            // Check for existing open issues with same title or similar
+            const { data: issues } = await github.rest.issues.listForRepo({ owner: context.repo.owner, repo: context.repo.repo, state: 'open', per_page: 100 });
+            const existing = issues.find(i => i.title === title || i.title.startsWith('Site down: I-doc heartbeat detected'));
+            if (existing) {
+              // Add a comment instead of creating duplicate
+              await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: existing.number, body: `Heartbeat detected another failure: ${status}` });
+              return;
+            }
+            // Create new issue
             await github.rest.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title, body });
+
+      - name: Slack alert (optional)
+        if: ${{ secrets.SLACK_WEBHOOK != '' && steps.check.outputs.status != '200' }}
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+        run: |
+          status=${{ steps.check.outputs.status }}
+          url=${{ steps.vars.outputs.url }}
+          payload=$(jq -n --arg text "Heartbeat alert: status=$status for $url" '{text: $text}')
+          curl -s -X POST -H "Content-type: application/json" --data "$payload" "$SLACK_WEBHOOK"

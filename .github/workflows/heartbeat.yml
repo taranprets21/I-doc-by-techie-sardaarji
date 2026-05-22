@@ -5,6 +5,9 @@ on:
     - cron: '*/15 * * * *'
   workflow_dispatch: {}
 
+permissions:
+  issues: write
+
 jobs:
   heartbeat:
     runs-on: ubuntu-latest
@@ -12,7 +15,8 @@ jobs:
       - name: Check site
         id: check
         run: |
-          status=$(curl -s -o /dev/null -w "%{http_code}" "https://taranprets21.github.io/I-doc-by-techie-sardaarji/")
+          status=$((curl -s -o /dev/null -w "%{http_code}" "https://taranprets21.github.io/I-doc-by-techie-sardaarji/") || echo "000")
+          echo "STATUS_PRINTED=$status"
           echo "status=$status" >> $GITHUB_OUTPUT
 
       - name: Create issue on failure
@@ -24,4 +28,4 @@ jobs:
             const status = `${{ steps.check.outputs.status }}`;
             const title = `Site down: I-doc heartbeat detected ${status}`;
             const body = `Automated heartbeat detected non-200 response: ${status}\n\nURL: https://taranprets21.github.io/I-doc-by-techie-sardaarji/`;
-            await github.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title, body });
+            await github.rest.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title, body });

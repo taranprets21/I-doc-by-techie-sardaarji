@@ -10,7 +10,7 @@ jobs:
       - name: Check failing URL (prints status)
         id: check
         run: |
-          status=$(curl -s -o /dev/null -w "%{http_code}" "https://httpstat.us/503")
+          status=$( (curl -s -o /dev/null -w "%{http_code}" "https://httpstat.us/503") || echo "000")
           echo "STATUS_PRINTED=$status"
           echo "status=$status" >> $GITHUB_OUTPUT
 

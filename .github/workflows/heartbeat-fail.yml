@@ -1,0 +1,26 @@
+name: Heartbeat Failure Demo
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  heartbeat-fail:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check failing URL (prints status)
+        id: check
+        run: |
+          status=$(curl -s -o /dev/null -w "%{http_code}" "https://httpstat.us/503")
+          echo "STATUS_PRINTED=$status"
+          echo "status=$status" >> $GITHUB_OUTPUT
+
+      - name: Create issue on failure
+        if: steps.check.outputs.status != '200'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const status = `${{ steps.check.outputs.status }}`;
+            const title = `Site down: I-doc heartbeat detected ${status} (demo)`;
+            const body = `Automated heartbeat demo detected non-200 response: ${status}\n\nTest URL: https://httpstat.us/503`;
+            await github.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title, body });

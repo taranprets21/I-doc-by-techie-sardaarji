@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { jsPDF } from 'jspdf';
 import { diagnoseDevice, fetchDevices, fetchReports } from '../api.js';
 import { useAuth } from '../AuthProvider.jsx';
 
@@ -51,7 +50,8 @@ function WorkflowDashboard() {
     }
   };
 
-  const generatePdf = (selectedReport) => {
+  const generatePdf = async (selectedReport) => {
+    const { jsPDF } = await import('jspdf');
     const doc = new jsPDF({ unit: 'pt', format: 'letter' });
     doc.setFontSize(20);
     doc.text('I-doc Device Diagnostic Report', 40, 50);

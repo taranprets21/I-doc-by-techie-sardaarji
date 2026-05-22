@@ -40,7 +40,16 @@ www.your-domain.com
 
 Then configure DNS for your domain provider with the GitHub Pages records from GitHub.
 
-## 4. Optional: Netlify publish
+> If you are using the default GitHub Pages site, remove any stray `CNAME` file from the `gh-pages` branch. A stale `CNAME` can redirect traffic to an unexpected domain such as `taranpreets21.github-it.ae`.
+
+## 4. GitHub Pages notes
+
+- The repository uses `.github/workflows/deploy.yml` to build the app and publish `dist` to the `gh-pages` branch.
+- The Vite config uses `base: '/I-doc-by-techie-sardaarji/'` so assets load correctly on the project site URL.
+- The workflow requires `contents: write`, `pages: write`, and `id-token: write` permissions so the action can publish Pages reliably.
+- A heartbeat workflow at `.github/workflows/heartbeat.yml` has been added to monitor the site and create an issue if the site ever returns a non-200 response.
+
+## 5. Optional: Netlify publish
 
 1. Connect your GitHub repository to Netlify.
 2. Set the build command:

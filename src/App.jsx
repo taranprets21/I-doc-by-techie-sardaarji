@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { Suspense, lazy, useState } from 'react';
 import { useAuth } from './AuthProvider.jsx';
 import FeatureCard from './components/FeatureCard.jsx';
 import TestSimulator from './components/TestSimulator.jsx';
 import LoginForm from './components/LoginForm.jsx';
-import WorkflowDashboard from './components/WorkflowDashboard.jsx';
+const WorkflowDashboard = lazy(() => import('./components/WorkflowDashboard.jsx'));
 import ContactForm from './components/ContactForm.jsx';
 
 const heroFeatures = [
@@ -171,7 +171,13 @@ function App() {
             <small>Device workflow</small>
             <h2>{user ? 'Secure diagnostics and report management' : 'Login to access the full testing workflow'}</h2>
           </div>
-          {user ? <WorkflowDashboard /> : <LoginForm />}
+          {user ? (
+            <Suspense fallback={<div className="loading">Loading diagnostics...</div>}>
+              <WorkflowDashboard />
+            </Suspense>
+          ) : (
+            <LoginForm />
+          )}
         </section>
 
         <section id="reviews" className="reviews-section">

@@ -3,6 +3,9 @@ name: Heartbeat Failure Demo
 on:
   workflow_dispatch: {}
 
+permissions:
+  issues: write
+
 jobs:
   heartbeat-fail:
     runs-on: ubuntu-latest
@@ -23,4 +26,4 @@ jobs:
             const status = `${{ steps.check.outputs.status }}`;
             const title = `Site down: I-doc heartbeat detected ${status} (demo)`;
             const body = `Automated heartbeat demo detected non-200 response: ${status}\n\nTest URL: https://httpstat.us/503`;
-            await github.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title, body });
+            await github.rest.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title, body });

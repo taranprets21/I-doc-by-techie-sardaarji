@@ -75,10 +75,19 @@ jobs:
             await github.rest.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title, body });
 
       - name: Slack alert (optional)
-        if: ${{ secrets.SLACK_WEBHOOK != '' && steps.check.outputs.status != '200' }}
+        if: steps.check.outputs.status != '200'
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
         run: |
+          if [ -z "$SLACK_WEBHOOK" ]; then
+            echo "No SLACK_WEBHOOK secret set; skipping Slack alert"
+            exit 0
+          fi
+          # install jq if missing
+          if ! command -v jq >/dev/null 2>&1; then
+            sudo apt-get update -y
+            sudo apt-get install -y jq
+          fi
           status=${{ steps.check.outputs.status }}
           url=${{ steps.vars.outputs.url }}
           payload=$(jq -n --arg text "Heartbeat alert: status=$status for $url" '{text: $text}')
